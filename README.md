@@ -10,7 +10,8 @@ They go on top of the course agent in `/workspace/research`.
 - `prompts.py`, `agents.py`: the pre-call brief agent. A lead agent, a scout,
   a prospect researcher, competitor researchers (at most 3) and a fact checker.
   The output is a one-page brief for an account executive, every fact sourced.
-
+- `tools.py`: the course search tool, plus one fix: a failed search is retried
+  once, then returned to the model as an error instead of ending the run.
 - `demo.ipynb`: the opening demo. A clean input and a real CRM record, run in
   the background, with the brief rendered in the notebook.
 - `workshop.py`: helpers for the notebook: `prepare()`, `start()`, `status()`,

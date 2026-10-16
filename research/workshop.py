@@ -107,6 +107,8 @@ def _state(name: str) -> dict:
     process = _processes.get(name)
     if process is not None and process.poll() is None:
         state = "running"
+    elif "Agent run failed" in log or (process is not None and process.returncode != 0):
+        state = "failed"
     elif run_dir:
         state = "done"
     elif process is None and time.time() - log_path.stat().st_mtime < 120:
@@ -124,18 +126,23 @@ def _state(name: str) -> dict:
     }
 
 
-def _searches(run_dir: Path | None) -> int | None:
+def _searches(run_dir: Path | None) -> tuple[int, int] | None:
+    """Searches made and searches that failed, from the run's trace."""
     calls = run_dir / "tool_calls.jsonl" if run_dir else None
     if calls is None or not calls.exists():
         return None
-    return sum(1 for line in calls.read_text().splitlines() if line.strip())
+    entries = [json.loads(line) for line in calls.read_text().splitlines() if line.strip()]
+    failed = sum(1 for entry in entries if isinstance(entry.get("response"), dict)
+                 and entry["response"].get("error"))
+    return len(entries), failed
 
 
 def _summary(state: dict) -> str:
     parts = [_duration(state["elapsed"]), f"{state['model_calls']} model calls"]
     searches = _searches(state["run_dir"])
     if searches is not None:
-        parts.append(f"{searches} searches")
+        made, failed = searches
+        parts.append(f"{made} searches" + (f" ({failed} failed)" if failed else ""))
     return " · ".join(parts)
 
 
@@ -156,8 +163,10 @@ def show(label_or_name: str, file: str = "final.md") -> None:
         print(f"{state['name']} is still running: {_summary(state)}")
         return
     if state["state"] == "failed" or state["run_dir"] is None:
-        print(f"{state['name']} failed after {_duration(state['elapsed'])}. Last lines of the log:\n")
-        print("\n".join(state["log"].splitlines()[-25:]))
+        print(f"{state['name']} failed: {_summary(state)}. The error:\n")
+        lines = state["log"].splitlines()
+        errors = [i for i, line in enumerate(lines) if "Error" in line or "DENIED" in line]
+        print("\n".join(lines[max(errors[-1] - 2, 0):errors[-1] + 1] if errors else lines[-25:]))
         return
     path = state["run_dir"] / file
     if not path.exists():
