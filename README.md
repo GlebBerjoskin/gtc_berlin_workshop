@@ -11,6 +11,11 @@ They go on top of the course agent in `/workspace/research`.
   a prospect researcher, competitor researchers (at most 3) and a fact checker.
   The output is a one-page brief for an account executive, every fact sourced.
 
+- `demo.ipynb`: the opening demo. A clean input and a real CRM record, run in
+  the background, with the brief rendered in the notebook.
+- `workshop.py`: helpers for the notebook: `prepare()`, `start()`, `status()`,
+  `show()`, `log()`. Runs through `openshell/run.py` like the course notebook.
+
 The OpenShell policy, the tools and the run wrapper stay the same.
 
 ## Get the files
@@ -46,12 +51,18 @@ for backup in Path('/workspace/research').rglob('*.orig'):
 
 ## Run a brief
 
+Open `demo.ipynb` and run the cells in order. Or, from any notebook in
+`/workspace/research`:
+
 ```python
-openshell('run', '--delete',
-          'We sell HR and payroll software to small and mid-size companies in Europe, '
-          'like Personio. Brief me for a call with <prospect> in 1 hour. Source every claim.')
+from workshop import prepare, start, status, show
+prepare()
+start('clean', 'We sell HR and payroll software to small and mid-size companies in Europe, '
+               'like Personio. Brief me for a call with <prospect> in 1 hour. Source every claim.')
+status()
+show('clean')
 ```
 
-The brief is in `runs/<run-id>/final.md`.
+Files of every run are in `runs/<run-id>/`, logs in `runs/_logs/`.
 
 Based on the Nebius Academy deep research course agent.
