@@ -18,6 +18,10 @@ They go on top of the course agent in `/workspace/research`.
   for the fact-checker role, to pick a model per role in seconds.
 - `02_full_agent.ipynb`: your own run, followed role by role, then your numbers
   for the cost estimate and where to change the agent.
+- `03_skip_ahead.ipynb`: for people who already run agents in production. Six
+  things to build on the same agent instead of listening: a fact-checker model,
+  call and time caps, token logging per role, input guardrails, an eval, and a
+  five-brief run to find the outlier.
 - `workshop.py`: helpers for the notebooks: `prepare()`, `start()`, `status()`,
   `show()`, `log()`, and after a run `files()`, `trace()`, `changes()`,
   `check()`. Runs through `openshell/run.py` like the course notebook.
