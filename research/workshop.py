@@ -10,11 +10,15 @@ background: the notebook stays free, build and agent logs go to a file, and
     status()
     show('clean')
 
+After a run: `files()` lists what each role wrote, `trace()` the searches,
+`changes()` what the fact check changed, `check()` the brief against simple rules.
+
 Standard library only, plus IPython for rendering. Runs outside the sandbox.
 """
 
 from __future__ import annotations
 
+import difflib
 import json
 import re
 import subprocess
@@ -181,3 +185,87 @@ def log(label_or_name: str, lines: int = 40) -> None:
     state = _state(_latest(label_or_name))
     agent_lines = [line for line in state["log"].splitlines() if not line.startswith("#")]
     print("\n".join(agent_lines[-lines:]))
+
+
+def _done(label_or_name: str) -> dict | None:
+    state = _state(_latest(label_or_name))
+    if state["state"] != "done" or state["run_dir"] is None:
+        print(f"{state['name']} is {state['state']}: {_summary(state)}")
+        return None
+    return state
+
+
+def files(label_or_name: str) -> None:
+    """What each role wrote: the plan, the findings, the draft and the brief."""
+    state = _done(label_or_name)
+    if state is None:
+        return
+    roles = {"plan.md": "lead: the plan", "notes.md": "lead: the draft brief, before the fact check",
+             "final.md": "lead: the brief after the fact check", "tool_calls.jsonl": "every search",
+             "findings/scout.md": "scout: competitor shortlist", "findings/prospect.md": "prospect researcher"}
+    for path in sorted(p for p in state["run_dir"].rglob("*") if p.is_file()):
+        name = str(path.relative_to(state["run_dir"]))
+        role = roles.get(name, "competitor researcher" if name.startswith("findings/") else "")
+        print(f"{name:<34} {path.stat().st_size:>7,} bytes  {role}")
+
+
+def trace(label_or_name: str) -> None:
+    """Every search the agent made, in order, with the number of results."""
+    state = _done(label_or_name)
+    if state is None:
+        return
+    calls = state["run_dir"] / "tool_calls.jsonl"
+    entries = [json.loads(line) for line in calls.read_text().splitlines() if line.strip()] if calls.exists() else []
+    for i, entry in enumerate(entries, 1):
+        args, response = entry.get("args", {}), entry.get("response")
+        if isinstance(response, dict) and response.get("error"):
+            result = "FAILED"
+        elif isinstance(response, dict):
+            result = f"{len(response.get('results', []))} results"
+        else:
+            result = ""
+        print(f"{i:>3}. [{args.get('topic') or 'general':<7}] {args.get('query')}  ({result})")
+    print(f"\n{_summary(state)}")
+
+
+def changes(label_or_name: str) -> None:
+    """What changed between the draft brief and the final one: the fact check at work."""
+    state = _done(label_or_name)
+    if state is None:
+        return
+    draft, final = state["run_dir"] / "notes.md", state["run_dir"] / "final.md"
+    if not draft.exists() or not final.exists():
+        print("This run has no draft (notes.md) or no final.md to compare.")
+        return
+    diff = [line for line in difflib.unified_diff(
+        draft.read_text().splitlines(), final.read_text().splitlines(), lineterm="", n=0)
+        if line[:1] in "+-" and line[:3] not in ("+++", "---") and line[1:].strip()]
+    if not diff:
+        print("The final brief is the same as the draft: the fact check found nothing to fix.")
+        return
+    _display("Lines starting with - were in the draft, lines with + are in the final brief.\n\n```diff\n"
+             + "\n".join(diff) + "\n```")
+
+
+URL = re.compile(r"https?://\S+")
+
+
+def check(label_or_name: str, claims: tuple[str, ...] = ("shutting down", "shut down")) -> None:
+    """Simple checks on the final brief: length, sources, and claims that must not appear."""
+    state = _done(label_or_name)
+    if state is None:
+        return
+    text = (state["run_dir"] / "final.md").read_text()
+    words = len(re.findall(r"\w+", URL.sub("", text)))
+    lines = [line.strip() for line in text.splitlines()
+             if len(re.findall(r"\w+", line)) >= 6 and not line.strip().startswith(("#", "|-", "| -"))]
+    sourced = [line for line in lines if URL.search(line)]
+    found = [line for line in text.splitlines() if any(c in line.lower() for c in claims)]
+    print(f"Length:  {words} words " + ("(ok, at most 400)" if words <= 400 else "(over 400)"))
+    print(f"Sources: {len(sourced)} of {len(lines)} lines with facts have a link")
+    if found:
+        print("Claims to check, the brief mentions:")
+        for line in found:
+            print("  ", line.strip()[:200])
+    else:
+        print("Claims: none of", ", ".join(repr(c) for c in claims), "in the brief")

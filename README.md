@@ -12,10 +12,15 @@ They go on top of the course agent in `/workspace/research`.
   The output is a one-page brief for an account executive, every fact sourced.
 - `tools.py`: the course search tool, plus one fix: a failed search is retried
   once, then returned to the model as an error instead of ending the run.
-- `demo.ipynb`: the opening demo. A clean input and a real CRM record, run in
-  the background, with the brief rendered in the notebook.
-- `workshop.py`: helpers for the notebook: `prepare()`, `start()`, `status()`,
-  `show()`, `log()`. Runs through `openshell/run.py` like the course notebook.
+- `00_demo.ipynb`: the opening demo. A clean input and a real CRM record, run
+  in the background, with the plan, the searches and the brief.
+- `01_token_factory.ipynb`: direct calls to Token Factory and a micro-benchmark
+  for the fact-checker role, to pick a model per role in seconds.
+- `02_full_agent.ipynb`: your own run, followed role by role, then your numbers
+  for the cost estimate and where to change the agent.
+- `workshop.py`: helpers for the notebooks: `prepare()`, `start()`, `status()`,
+  `show()`, `log()`, and after a run `files()`, `trace()`, `changes()`,
+  `check()`. Runs through `openshell/run.py` like the course notebook.
 
 The OpenShell policy, the tools and the run wrapper stay the same.
 
@@ -52,7 +57,7 @@ for backup in Path('/workspace/research').rglob('*.orig'):
 
 ## Run a brief
 
-Open `demo.ipynb` and run the cells in order. Or, from any notebook in
+Open `02_full_agent.ipynb` and run the cells in order. Or, from any notebook in
 `/workspace/research`:
 
 ```python
